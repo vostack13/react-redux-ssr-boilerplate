@@ -1,6 +1,6 @@
 module.exports = {
 	babelrc       : false,
-	cacheDirectory: true,
+	// cacheDirectory: true,
 
 	presets: [
 		"@babel/preset-env",

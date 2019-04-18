@@ -1,8 +1,12 @@
 import '@babel/polyfill';
-import { matchRoutes } from 'react-router-config';
 import express from 'express';
-import Routes from '../client/routes';
-import renderer from '../helpers/renderer';
+import React from 'react';
+import HTML from '../helpers/renderer';
+import { StaticRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import createStore from '../helpers/create-store';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
+import appRoutes from '../client/routes';
 
 const port = process.env.PORT || 8080;
 const app = express();
@@ -15,38 +19,22 @@ app.use((err, req, res, next) => {
 });
 
 app.get(['/*/:param', '*'], (req, res) => {
-	const ParamValue = req.params.param ? req.params.param : null;
-	const store = createStore(req);
+		const store = createStore(req);
+		const context = {};
 
-	const promises = matchRoutes(Routes, req.path)
-		.map(({ route }) => route.loadData
-			? route.loadData(store, ParamValue)
-			: null
-		)
-		.map(promise => {
-			if(promise)
-				return new Promise((resolve, rejects) => {
-					promise
-						.then(resolve)
-						.catch(resolve)
-				});
-		});
-	
-	Promise
-		.all(promises)
-		.then(() => {
-			const context = {};
-			const content = renderer(req, store, context);
+		const content = renderToString(
+			<Provider store={store}>
+				<StaticRouter location={req.path} context={context}> 
+					{appRoutes()}
+				</StaticRouter>
+			</Provider>
+		);
 
-			if(context.url)
-				return res.redirect(301, context.url);
+		const html = <HTML store={store} content={content} />;
 
-			if(context.notFound)
-				res.status(404);
-
-			res.send(content);
-		})
-});
+		res.send(`<!DOCTYPE html>\n${renderToStaticMarkup(html)}`);
+		res.end();
+	});
 
 app.listen(port, () => {
 	console.log(`Running on Port ${port}`);
